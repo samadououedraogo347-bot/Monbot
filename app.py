@@ -13,7 +13,7 @@ TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 application = Application.builder().token(TOKEN).build()
 
 # ⚠️ Remplace ce nombre par TON vrai ID Telegram
-admin_id = 123456789  
+admin_id = 6100143894
 
 # Dictionnaires pour gérer les joueurs
 joueurs_attente = {}
