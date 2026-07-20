@@ -9,6 +9,9 @@ flask_app = Flask(__name__)
 # Récupère ton token depuis les variables d'environnement Render
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
+if not TOKEN:
+    raise ValueError("❌ TELEGRAM_BOT_TOKEN n'est pas configuré dans les variables d'environnement Render!")
+
 # Crée l'application Telegram
 application = Application.builder().token(TOKEN).build()
 
@@ -28,7 +31,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "3️⃣ Envoie ton ID 1win avec la commande /id <ton_id>"
     )
 
-# Commande /id pour envoyer l’ID 1win
+# Commande /id pour envoyer l'ID 1win
 async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     id_1win = context.args[0] if context.args else None
@@ -38,7 +41,7 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     joueurs_attente[user_id] = id_1win
-    await update.message.reply_text("⏳ Ton ID a été envoyé pour validation. Attends la confirmation de l’admin.")
+    await update.message.reply_text("⏳ Ton ID a été envoyé pour validation. Attends la confirmation de l'admin.")
 
 # Commande admin pour valider un joueur
 async def valider(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,7 +79,7 @@ async def refuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def jeux(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in joueurs_valides:
-        await update.message.reply_text("❌ Accès refusé. Ton compte n’est pas validé.")
+        await update.message.reply_text("❌ Accès refusé. Ton compte n'est pas validé.")
         return
 
     await update.message.reply_text(
@@ -87,14 +90,14 @@ async def jeux(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Choisis un jeu et tu recevras les prédictions correspondantes ✅"
     )
 
-# Commande /luckyjet réservée à l’admin
+# Commande /luckyjet réservée à l'admin
 async def luckyjet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id == admin_id:
         await update.message.reply_text("🎯 Signaux Lucky Jet : Exemple ✅\n15h00 → 2x\n15h07 → 1.5x\n15h16 → 3x")
     else:
         await update.message.reply_text("❌ Accès refusé.")
 
-# Commande /session réservée à l’admin
+# Commande /session réservée à l'admin
 async def session(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != admin_id:
         await update.message.reply_text("❌ Accès refusé.")
@@ -140,3 +143,10 @@ def webhook():
     update = Update.de_json(request.get_json(force=True), application.bot)
     application.update_queue.put(update)
     return "OK"
+
+# Point d'entrée principal
+if __name__ == "__main__":
+    # Mode polling (recommandé pour Render)
+    # Le bot va continuellement vérifier les nouveaux messages
+    print("🚀 Bot démarré en mode polling...")
+    application.run_polling()
