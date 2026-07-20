@@ -9,9 +9,6 @@ flask_app = Flask(__name__)
 # Récupère ton token depuis les variables d'environnement Render
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-if not TOKEN:
-    raise ValueError("❌ TELEGRAM_BOT_TOKEN n'est pas configuré dans les variables d'environnement Render!")
-
 # Crée l'application Telegram
 application = Application.builder().token(TOKEN).build()
 
@@ -143,10 +140,3 @@ def webhook():
     update = Update.de_json(request.get_json(force=True), application.bot)
     application.update_queue.put(update)
     return "OK"
-
-# Point d'entrée principal
-if __name__ == "__main__":
-    # Mode polling (recommandé pour Render)
-    # Le bot va continuellement vérifier les nouveaux messages
-    print("🚀 Bot démarré en mode polling...")
-    application.run_polling()
