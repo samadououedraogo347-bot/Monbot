@@ -8,6 +8,7 @@ flask_app = Flask(__name__)
 
 # Récupère ton token depuis les variables d'environnement Render
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # URL publique du webhook
 
 # Crée l'application Telegram
 application = Application.builder().token(TOKEN).build()
@@ -130,13 +131,30 @@ application.add_handler(CommandHandler("jeux", jeux))
 application.add_handler(CommandHandler("luckyjet", luckyjet))
 application.add_handler(CommandHandler("session", session))
 
-# Routes Flask pour Render
+# Routes Flask pour Render - WEBHOOK UNIQUEMENT
 @flask_app.route('/')
 def index():
     return "Bot en ligne ✅"
 
 @flask_app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
+    """Webhook pour recevoir les mises à jour de Telegram"""
     update = Update.de_json(request.get_json(force=True), application.bot)
-    application.update_queue.put(update)
+    await application.process_update(update)
     return "OK"
+
+@flask_app.route('/set_webhook', methods=['POST'])
+async def set_webhook():
+    """Route pour configurer le webhook"""
+    if not WEBHOOK_URL:
+        return {"error": "WEBHOOK_URL non configurée"}, 400
+    
+    try:
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        return {"status": "Webhook configuré avec succès"}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+if __name__ == "__main__":
+    # Lance seulement le serveur Flask (webhook)
+    flask_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
