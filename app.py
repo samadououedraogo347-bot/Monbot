@@ -139,9 +139,17 @@ def index():
 @flask_app.route('/webhook', methods=['POST'])
 async def webhook():
     """Webhook pour recevoir les mises à jour de Telegram"""
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    await application.process_update(update)
-    return "OK"
+    try:
+        # Initialise l'application si nécessaire
+        if not application.bot.token:
+            await application.initialize()
+        
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        await application.process_update(update)
+        return "OK", 200
+    except Exception as e:
+        print(f"Erreur webhook: {e}")
+        return "Error", 500
 
 @flask_app.route('/set_webhook', methods=['POST'])
 async def set_webhook():
@@ -150,6 +158,8 @@ async def set_webhook():
         return {"error": "WEBHOOK_URL non configurée"}, 400
     
     try:
+        # Initialise l'application avant de configurer le webhook
+        await application.initialize()
         await application.bot.set_webhook(url=WEBHOOK_URL)
         return {"status": "Webhook configuré avec succès"}, 200
     except Exception as e:
