@@ -1,4 +1,5 @@
 import os
+import asyncio
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -13,12 +14,23 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # URL publique du webhook
 # Crée l'application Telegram
 application = Application.builder().token(TOKEN).build()
 
+# Flag pour tracker si l'application est initialisée
+app_initialized = False
+
 # ⚠️ Remplace ce nombre par TON vrai ID Telegram
 admin_id = 6100143894
 
 # Dictionnaires pour gérer les joueurs
 joueurs_attente = {}
 joueurs_valides = {}
+
+async def initialize_app():
+    """Initialise l'application Telegram une seule fois"""
+    global app_initialized
+    if not app_initialized:
+        await application.initialize()
+        app_initialized = True
+        print("✅ Application Telegram initialisée")
 
 # Commande /start pour les joueurs
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -141,14 +153,18 @@ async def webhook():
     """Webhook pour recevoir les mises à jour de Telegram"""
     try:
         # Initialise l'application si nécessaire
-        if not application.bot.token:
-            await application.initialize()
+        await initialize_app()
         
-        update = Update.de_json(request.get_json(force=True), application.bot)
+        # Récupère et traite la mise à jour
+        update_data = request.get_json(force=True)
+        update = Update.de_json(update_data, application.bot)
         await application.process_update(update)
+        
         return "OK", 200
     except Exception as e:
-        print(f"Erreur webhook: {e}")
+        print(f"❌ Erreur webhook: {e}")
+        import traceback
+        traceback.print_exc()
         return "Error", 500
 
 @flask_app.route('/set_webhook', methods=['POST'])
@@ -159,10 +175,12 @@ async def set_webhook():
     
     try:
         # Initialise l'application avant de configurer le webhook
-        await application.initialize()
+        await initialize_app()
         await application.bot.set_webhook(url=WEBHOOK_URL)
+        print(f"✅ Webhook configuré: {WEBHOOK_URL}")
         return {"status": "Webhook configuré avec succès"}, 200
     except Exception as e:
+        print(f"❌ Erreur set_webhook: {e}")
         return {"error": str(e)}, 500
 
 if __name__ == "__main__":
