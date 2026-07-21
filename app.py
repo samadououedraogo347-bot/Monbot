@@ -1,5 +1,6 @@
 import os
 import asyncio
+import sys
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -23,6 +24,24 @@ admin_id = 6100143894
 # Dictionnaires pour gérer les joueurs
 joueurs_attente = {}
 joueurs_valides = {}
+
+# Gestion de la boucle d'événements
+def get_event_loop():
+    """Récupère ou crée une boucle d'événements valide"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # Pas de boucle active, on vérifie s'il y en a une fermée
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    
+    return loop
 
 async def initialize_app():
     """Initialise l'application Telegram une seule fois"""
@@ -177,8 +196,24 @@ def index():
     return "Bot en ligne ✅"
 
 @flask_app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     """Webhook pour recevoir les mises à jour de Telegram"""
+    try:
+        # Récupère ou crée une boucle d'événements valide
+        loop = get_event_loop()
+        
+        # Lance la coroutine de traitement du webhook dans la boucle d'événements
+        loop.run_until_complete(_process_webhook())
+        
+        return "OK", 200
+    except Exception as e:
+        print(f"❌ Erreur webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        return "Error", 500
+
+async def _process_webhook():
+    """Traite la mise à jour Telegram de manière asynchrone"""
     try:
         # Initialise l'application si nécessaire
         await initialize_app()
@@ -188,28 +223,40 @@ async def webhook():
         update = Update.de_json(update_data, application.bot)
         await application.process_update(update)
         
-        return "OK", 200
+        print("✅ Mise à jour traitée avec succès")
     except Exception as e:
-        print(f"❌ Erreur webhook: {e}")
+        print(f"❌ Erreur lors du traitement: {e}")
         import traceback
         traceback.print_exc()
-        return "Error", 500
 
 @flask_app.route('/set_webhook', methods=['POST'])
-async def set_webhook():
+def set_webhook():
     """Route pour configurer le webhook"""
     if not WEBHOOK_URL:
         return {"error": "WEBHOOK_URL non configurée"}, 400
     
     try:
-        # Initialise l'application avant de configurer le webhook
-        await initialize_app()
-        await application.bot.set_webhook(url=WEBHOOK_URL)
-        print(f"✅ Webhook configuré: {WEBHOOK_URL}")
+        # Récupère ou crée une boucle d'événements valide
+        loop = get_event_loop()
+        
+        # Lance la configuration du webhook dans la boucle d'événements
+        loop.run_until_complete(_configure_webhook())
+        
         return {"status": "Webhook configuré avec succès"}, 200
     except Exception as e:
         print(f"❌ Erreur set_webhook: {e}")
         return {"error": str(e)}, 500
+
+async def _configure_webhook():
+    """Configure le webhook de manière asynchrone"""
+    try:
+        # Initialise l'application avant de configurer le webhook
+        await initialize_app()
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        print(f"✅ Webhook configuré: {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"❌ Erreur lors de la configuration: {e}")
+        raise
 
 if __name__ == "__main__":
     # Lance seulement le serveur Flask (webhook)
