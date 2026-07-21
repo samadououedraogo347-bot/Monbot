@@ -114,25 +114,53 @@ async def session(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        start_hour = int(context.args[0])   # ex: 7
-        end_hour = int(context.args[1])     # ex: 12
-        cote = int(context.args[2])         # ex: 2
-        valeur = float(context.args[3])     # ex: 1.50
-        spacing = int(context.args[4]) if len(context.args) > 4 else 2
+        # Récupère les arguments
+        if len(context.args) < 4:
+            await update.message.reply_text(
+                "❌ Format incorrect.\n"
+                "Usage : /session <start> <end> <cote> <espacement>\n\n"
+                "Exemples :\n"
+                "/session 7 12 1.50 5\n"
+                "/session 10 15 2 3"
+            )
+            return
+
+        start_hour = int(context.args[0])     # ex: 7
+        end_hour = int(context.args[1])       # ex: 12
+        cote = float(context.args[2])         # ex: 1.50 ou 2
+        espacement = int(context.args[3])     # ex: 5 (en minutes)
 
         signaux = []
+        current_hour = start_hour
         minute = 0
-        while start_hour <= end_hour:
-            signaux.append(f"{start_hour:02d}h{minute:02d} → côté {cote} (valeur {valeur})")
-            minute += spacing
+
+        while current_hour <= end_hour:
+            # Formate la cote correctement (1.50 reste 1.50, 2 reste 2)
+            if cote == int(cote):
+                cote_str = str(int(cote))
+            else:
+                cote_str = str(cote)
+            
+            signaux.append(f"{current_hour:02d}h{minute:02d} → {cote_str}x")
+            
+            minute += espacement
             if minute >= 60:
-                minute = 0
-                start_hour += 1
+                minute = minute - 60
+                current_hour += 1
 
         await update.message.reply_text("📊 Signaux Lucky Jet générés :\n" + "\n".join(signaux))
 
-    except Exception:
-        await update.message.reply_text("Usage : /session <start> <end> <cote> <valeur> [espacement]")
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Erreur dans les valeurs entrées.\n"
+            "Assure-toi que :\n"
+            "- <start> et <end> sont des nombres entiers\n"
+            "- <cote> peut être un nombre décimal (ex: 1.50) ou entier (ex: 2)\n"
+            "- <espacement> est un nombre entier en minutes\n\n"
+            "Usage : /session <start> <end> <cote> <espacement>"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Erreur : {str(e)}")
 
 # Ajoute les commandes
 application.add_handler(CommandHandler("start", start))
